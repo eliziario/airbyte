@@ -26,10 +26,10 @@
 import json
 import os
 import pkgutil
-import sys
 from typing import Any, Dict, Mapping
 
 import pkg_resources
+
 from airbyte_cdk.logger import AirbyteLogger
 from airbyte_cdk.models import ConnectorSpecification
 from jsonschema import RefResolver, validate
@@ -144,4 +144,4 @@ def check_config_against_spec_or_exit(config: Mapping[str, Any], spec: Connector
         validate(instance=config, schema=spec_schema)
     except ValidationError as validation_error:
         logger.error("Config validation error: " + validation_error.message)
-        sys.exit(1)
+        raise SystemExit(1) from None

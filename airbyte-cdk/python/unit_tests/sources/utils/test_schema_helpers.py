@@ -27,11 +27,18 @@ import json
 import os
 import shutil
 import sys
+import traceback
 from collections.abc import Mapping
 from pathlib import Path
 
-from airbyte_cdk.sources.utils.schema_helpers import ResourceSchemaLoader
+from airbyte_cdk.logger import AirbyteLogger
+from airbyte_cdk.models.airbyte_protocol import ConnectorSpecification
+from airbyte_cdk.sources.utils.schema_helpers import ResourceSchemaLoader, check_config_against_spec_or_exit
 from pytest import fixture
+from pytest import raises as pytest_raises
+
+logger = AirbyteLogger()
+
 
 MODULE = sys.modules[__name__]
 MODULE_NAME = MODULE.__name__.split(".")[0]
@@ -51,6 +58,28 @@ def create_and_teardown_schemas_dir():
 def create_schema(name: str, content: Mapping):
     with open(SCHEMAS_ROOT / f"{name}.json", "w") as f:
         f.write(json.dumps(content))
+
+
+def test_check_config_against_spec_or_exit_does_not_print_schema(capsys):
+    spec = {
+        "connectionSpecification": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "required": ["api_token", "account_id", "replication_start_date"],
+            "additionalProperties": False,
+            "properties": {
+                "api_token": {"title": "API Token", "type": "string"},
+            },
+        },
+    }
+    spec_object = ConnectorSpecification.parse_obj(spec)
+    config = {"super_secret_token": "really_a_secret"}
+    with pytest_raises(SystemExit) as ex_info:
+        check_config_against_spec_or_exit(config, spec_object, logger)
+        exc = ex_info.value
+        traceback.print_exception(type(exc), exc, exc.__traceback__)
+        out, err = capsys.readouterr()
+        assert "really_a_secret" not in out + err
 
 
 class TestResourceSchemaLoader:
